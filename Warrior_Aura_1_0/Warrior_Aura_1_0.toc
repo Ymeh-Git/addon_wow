@@ -1,8 +1,8 @@
 ## Interface: 30300
-## Title: ProtAura
+## Title: Warrior_Aura_1_0
 ## Notes: Affiche des alertes visuelles pour Vengeance, Onde de choc et Heurt bouclier.
 ## Author: Ymerion
 ## Version: 1.0
-## SavedVariables: ProtAuraDB
+## SavedVariables: Warrior_Aura_1_0_DB
 
-ProtAura.lua
+Warrior_Aura_1_0.lua
