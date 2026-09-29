@@ -1,7 +1,7 @@
 ## Interface: 30300
 ## Title: ProtAura
 ## Notes: Affiche des alertes visuelles pour Vengeance, Onde de choc et Heurt bouclier.
-## Author: TonNom
+## Author: Ymerion
 ## Version: 1.0
 ## SavedVariables: ProtAuraDB
 

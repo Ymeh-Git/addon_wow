@@ -69,6 +69,30 @@ vengeanceVisual:SetScript("OnUpdate", function(self, elapsed)
     end
 end)
 
+-- Le chronomètre d'Onde de choc : uniquement pendant les 5 dernières secondes du temps de recharge
+-- ondeVisual est caché pendant la recharge (et un cadre caché n'exécute pas son OnUpdate),
+-- donc on utilise un cadre séparé, toujours actif, qui affiche l'icône au bon moment
+local ondeTimer = CreateFrame("Frame")
+ondeTimer:SetScript("OnUpdate", function(self, elapsed)
+    local start, duration = GetSpellCooldown(spellOndeDeChoc)
+
+    -- duration > 1.5 permet d'ignorer le "Global Cooldown" (GCD) de 1.5s
+    if start and start > 0 and duration > 1.5 then
+        local timeLeft = (start + duration) - GetTime()
+        if timeLeft > 0 and timeLeft <= 5 then
+            ondeVisual:Show()
+            ondeVisual.text:SetText(math.ceil(timeLeft)) -- math.ceil arrondit à l'entier supérieur
+            return
+        end
+    end
+
+    -- Hors des 5 dernières secondes : pas de chrono
+    ondeVisual.text:SetText("")
+    -- On ne cache l'icône que si le sort n'est pas prêt (sinon c'est CheckSpells qui la gère)
+    if not isOndeActive then
+        ondeVisual:Hide()
+    end
+end)
 
 -- ==============================================================================
 -- LOGIQUE ET DÉCLENCHEURS (EVENTS)
@@ -138,4 +162,87 @@ end
 frame:SetScript("OnEvent", function(self, event, unit)
     if event == "UNIT_AURA" and unit ~= "player" then return end
     CheckSpells()
+end)
+
+-- ==============================================================================
+-- FENÊTRE "BONJOUR"
+-- ==============================================================================
+
+local helloFrame = CreateFrame("Frame", "ProtAuraHelloFrame", UIParent)
+helloFrame:SetSize(200, 100)
+helloFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 100)
+helloFrame:SetFrameStrata("DIALOG")
+helloFrame:SetBackdrop({
+    bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+    edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+    tile = true, tileSize = 32, edgeSize = 32,
+    insets = { left = 11, right = 12, top = 12, bottom = 11 },
+})
+helloFrame:Hide() -- Cachée par défaut
+tinsert(UISpecialFrames, "ProtAuraHelloFrame") -- Fermeture avec la touche Échap
+
+local helloText = helloFrame:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+helloText:SetPoint("CENTER", helloFrame, "CENTER", 0, 0)
+helloText:SetText("Bonjour")
+
+-- Petite croix en haut à droite pour fermer
+local helloClose = CreateFrame("Button", nil, helloFrame, "UIPanelCloseButton")
+helloClose:SetPoint("TOPRIGHT", helloFrame, "TOPRIGHT", -6, -6)
+
+-- ==============================================================================
+-- BOUTON DE LA MINIMAP
+-- ==============================================================================
+
+local minimapButton = CreateFrame("Button", "ProtAuraMinimapButton", Minimap)
+minimapButton:SetSize(31, 31)
+minimapButton:SetFrameStrata("MEDIUM")
+minimapButton:SetFrameLevel(Minimap:GetFrameLevel() + 10) -- Au-dessus des éléments de la minimap
+minimapButton:EnableMouse(true)
+minimapButton:RegisterForClicks("LeftButtonUp")
+minimapButton:RegisterForDrag("LeftButton")
+minimapButton:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
+
+-- Place le bouton sur le bord de la minimap selon un angle (0 = droite, 90 = haut, 270 = bas)
+local function SetMinimapButtonAngle(angle)
+    local rad = math.rad(angle)
+    minimapButton:ClearAllPoints()
+    minimapButton:SetPoint("CENTER", Minimap, "CENTER", math.cos(rad) * 80, math.sin(rad) * 80)
+end
+SetMinimapButtonAngle(250) -- En bas à gauche de la minimap, zone libre par défaut
+
+-- Glisser le bouton pour le déplacer autour de la minimap
+minimapButton:SetScript("OnDragStart", function(self)
+    self:SetScript("OnUpdate", function()
+        local mx, my = Minimap:GetCenter()
+        local px, py = GetCursorPosition()
+        local scale = Minimap:GetEffectiveScale()
+        px, py = px / scale, py / scale
+        SetMinimapButtonAngle(math.deg(math.atan2(py - my, px - mx)))
+    end)
+end)
+minimapButton:SetScript("OnDragStop", function(self)
+    self:SetScript("OnUpdate", nil)
+end)
+
+-- L'icône d'Onde de choc (avec une icône de secours si le sort n'est pas trouvé)
+local minimapIcon = minimapButton:CreateTexture(nil, "ARTWORK")
+minimapIcon:SetSize(20, 20)
+minimapIcon:SetPoint("TOPLEFT", minimapButton, "TOPLEFT", 6, -5)
+local _, _, ondeTexture = GetSpellInfo(spellOndeDeChoc)
+minimapIcon:SetTexture("Interface\\Icons\\Ability_warrior_defensivestance")
+minimapIcon:SetTexCoord(0.08, 0.92, 0.08, 0.92) -- On rogne les bords de l'icône
+
+-- La bordure dorée ronde, comme les autres boutons de la minimap
+local minimapBorder = minimapButton:CreateTexture(nil, "OVERLAY")
+minimapBorder:SetSize(53, 53)
+minimapBorder:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
+minimapBorder:SetPoint("TOPLEFT", minimapButton, "TOPLEFT", 0, 0)
+
+-- Un clic ouvre ou ferme la fenêtre
+minimapButton:SetScript("OnClick", function()
+    if helloFrame:IsShown() then
+        helloFrame:Hide()
+    else
+        helloFrame:Show()
+    end
 end)
